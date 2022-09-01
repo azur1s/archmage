@@ -1,0 +1,47 @@
+cabal-version:      3.0
+name:               neodelta
+version:            0.1.0
+synopsis:           Neodelta programming language
+
+-- A longer description of the package.
+-- description:
+homepage:           https://github.com/azur1s/neodelta
+
+-- A URL where users can report bugs.
+-- bug-reports:
+license:            MIT
+license-file:       LICENSE
+author:             Natapat Samutpong
+maintainer:         natapat.samutpong@gmail.com
+
+-- A copyright notice.
+-- copyright:
+category:           Language
+extra-source-files: README.md
+
+executable nd
+    main-is:          Main.hs
+
+    other-modules:
+        Model,
+        Parse,
+        Eval,
+
+    other-extensions:
+        OverloadedStrings,
+
+    build-depends:
+        base ^>=4.14.3.0,
+        -- Parse
+        text,
+        megaparsec,
+        -- Eval
+        containers,
+        mtl,
+        transformers,
+        -- Repl
+        haskeline,
+
+    hs-source-dirs:   src
+    default-language: Haskell2010
+    ghc-options:      -Wall -Wno-name-shadowing -XOverloadedStrings
