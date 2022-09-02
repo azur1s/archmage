@@ -40,23 +40,24 @@ data Ast
     deriving (Show, Eq)
 
 -- | Format Abstract Syntax Tree for printing
-printAst :: Ast -> T.Text
-printAst Nil = "nil"
-printAst (Bool b) = if b then "true" else "false"
-printAst (Int i) = T.pack $ show i
-printAst (Float f) = T.pack $ show f
-printAst (Str s) = s
-printAst (Sym s) = s
-printAst (App f []) = "(" <> printAst f <> ")"
-printAst (App f args) = "(" <> printAst f <> " " <> T.intercalate " " (map printAst args) <> ")"
-printAst (Quote a) = "'" <> printAst a
-printAst (Unquote a) = "~" <> printAst a
-printAst (UnquoteSplicing a) = "~@" <> printAst a
-printAst (Quasiquote a) = "`" <> printAst a
-printAst (Lam args body) = "(lambda (" <> T.intercalate " " args <> ") " <> printAst body <> ")"
-printAst (Let name body) = "(let " <> name <> " " <> printAst body <> ")"
-printAst (If cond then' else') = "(if " <> printAst cond <> " " <> printAst then' <> " " <> printAst else' <> ")"
-printAst (Do exprs) = "(do " <> T.intercalate " " (map printAst exprs) <> ")"
+printAst :: Bool -> Ast -> T.Text
+printAst _ Nil = "nil"
+printAst _ (Bool b) = if b then "true" else "false"
+printAst _ (Int i) = T.pack $ show i
+printAst _ (Float f) = T.pack $ show f
+printAst True (Str s) = "\"" <> s <> "\""
+printAst False (Str s) = s
+printAst _ (Sym s) = s
+printAst q (App f []) = "(" <> printAst q f <> ")"
+printAst q (App f args) = "(" <> printAst q f <> " " <> T.intercalate " " (map (printAst q) args) <> ")"
+printAst q (Quote a) = "'" <> printAst q a
+printAst q (Unquote a) = "~" <> printAst q a
+printAst q (UnquoteSplicing a) = "~@" <> printAst q a
+printAst q (Quasiquote a) = "`" <> printAst q a
+printAst q (Lam args body) = "(lambda (" <> T.intercalate " " args <> ") " <> printAst q body <> ")"
+printAst q (Let name body) = "(let " <> name <> " " <> printAst q body <> ")"
+printAst q (If cond then' else') = "(if " <> printAst q cond <> " " <> printAst q then' <> " " <> printAst q else' <> ")"
+printAst q (Do exprs) = "(do " <> T.intercalate " " (map (printAst q) exprs) <> ")"
 
 -- | Check if all the element in list are symbol
 isSymList :: [Ast] -> Bool

@@ -49,7 +49,7 @@ repl = H.runInputT H.defaultSettings $ H.withInterrupt $ loop H.getInputLine ini
                             (Left err, _) -> liftIO (putStrLn $ "\x1b[91mError: \x1b[0m" ++ err)
                                 >> loop get env
                             (Right ast, env') -> liftIO (putStrLn
-                                    $ unpack (printAst ast)
+                                    $ unpack (printAst True ast)
                                     ++ " \x1b[90m(Took " ++ diff ++ "s)\x1b[0m")
                                 >> loop get env'
 

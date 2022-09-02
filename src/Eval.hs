@@ -2,12 +2,13 @@ module Eval where
 
 import Data.Fixed (mod')
 import Data.Foldable (foldrM)
-import Data.Text (Text, unpack)
-import Model (Eval, Ast(..), printAst, get, set, require, requireatleast)
+import Data.Text (Text, pack, unpack)
+import Model (Eval, Ast(..), lowerCst, printAst, get, set, require, requireatleast)
 import qualified Data.Map as M
 import qualified Control.Monad.Trans as T
 import qualified Control.Monad.Trans.Except as E
 import qualified Control.Monad.Trans.State as S
+import qualified Parse as P
 
 -- | Equivalent to `pair?` in Racket, return true if it's a quoted non-empty application
 isPairBool :: Ast -> Bool
@@ -77,11 +78,12 @@ core = M.fromList [
         Bool x -> return $ Bool (not x)
         _ -> E.throwE "not: invalid argument type")
 
-    -- List-related functions
+    -- List and types related functions
 
     , ("pair?", \xs -> require "pair?" 1 xs >> return (Bool (isPairBool (head xs))))
     , ("list?", \xs -> require "list?" 1 xs >> return (Bool (isListBool (head xs))))
-    , ("list",\xs -> requireatleast "list" 1 xs >> return (Quote (App (head xs) (tail xs))))
+
+    , ("list", \xs -> requireatleast "list" 1 xs >> return (Quote (App (head xs) (tail xs))))
     , ("cons", \xs -> require "cons" 2 xs >> case (head xs, last xs) of
         (Quote x, Quote (App y ys)) -> return $ Quote (App x (y:ys))
         (x, Quote (App y ys)) -> return $ Quote (App x (y:ys))
@@ -107,16 +109,37 @@ core = M.fromList [
             >>= \xs' -> return $ Quote (App (head xs') (tail xs'))
         _ -> E.throwE "map: invalid argument type")
 
+    , ("str", \xs -> requireatleast "str" 1 xs
+        >> return (Str (pack (concatMap (unpack . printAst False) xs))))
+    , ("read", \xs -> require "read" 1 xs >> case head xs of
+        Str src -> case P.parseProgram "read" (unpack src) of
+                Left err -> E.throwE $
+                    (concatMap ("Parse error: " ++) . P.fmtParseError . P.errorUnpack) err
+                Right csts -> do
+                    let asts = map lowerCst csts
+                    return $ Quote (App (head asts) (tail asts))
+        _ -> E.throwE "read: invalid argument type")
+
     -- IO functions
 
     , ("puts", \xs -> require "puts" 1 xs
         >> evalAst (head xs)
-        >>= T.liftIO . putStr . unpack . printAst
+        >>= T.liftIO . putStr . unpack . printAst False
         >> return Nil)
     , ("putsln", \xs -> require "putsln" 1 xs
         >> evalAst (head xs)
-        >>= T.liftIO . putStrLn . unpack . printAst
+        >>= T.liftIO . putStrLn . unpack . printAst False
         >> return Nil)
+    , ("slurp", \xs -> require "slurp" 1 xs
+        >> evalAst (head xs)
+        >>= T.liftIO . readFile . unpack . printAst False
+        >>= \x -> return $ Str (pack x))
+    , ("eval", \xs -> require "eval" 1 xs >> case head xs of
+        Quote x -> evalAst x
+        _ -> E.throwE "eval: invalid argument type")
+    , ("evals", \xs -> require "evals" 1 xs >> case head xs of
+        Quote (App x xs) -> eval (x:xs)
+        _ -> E.throwE "evals: invalid argument type")
     ]
 
 -- | Evaluate an abstract syntax tree
@@ -156,7 +179,7 @@ evalAst (App (Lam args body) x) = do
             >> evalAst body
     T.lift (S.put envbefore)
     return result
-evalAst e = E.throwE $ "Invalid expression: " ++ (unpack . printAst) e
+evalAst e = E.throwE $ "Invalid expression: " ++ (unpack . printAst True) e
 
 qqIter :: Ast -> Ast -> Eval Ast
 qqIter (UnquoteSplicing xs) acc = evalAst $ App (Sym "concat") [xs, acc]
