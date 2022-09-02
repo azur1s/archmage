@@ -1,12 +1,13 @@
 module Eval where
 
+import Data.Fixed (mod')
+import Data.Foldable (foldrM)
 import Data.Text (Text, unpack)
 import Model (Eval, Ast(..), printAst, get, set, require, requireatleast)
 import qualified Data.Map as M
 import qualified Control.Monad.Trans as T
 import qualified Control.Monad.Trans.Except as E
 import qualified Control.Monad.Trans.State as S
-import Data.Foldable (foldrM)
 
 -- | Equivalent to `pair?` in Racket, return true if it's a quoted non-empty application
 isPairBool :: Ast -> Bool
@@ -58,6 +59,12 @@ core = M.fromList
         (Int x, Float y) -> return $ Float (fromIntegral x / y)
         (Float x, Int y) -> return $ Float (x / fromIntegral y)
         _ -> E.throwE "/: invalid argument type")
+    , ("%", \xs -> require "%" 2 xs >> case (head xs, last xs) of
+        (Int x, Int y) -> return $ Int (x `mod` y)
+        (Float x, Float y) -> return $ Float (x `mod'` y)
+        (Int x, Float y) -> return $ Float (fromIntegral x `mod'` y)
+        (Float x, Int y) -> return $ Float (x `mod'` fromIntegral y)
+        _ -> E.throwE "%: invalid argument type")
     , ("=", \xs -> require "=" 2 xs >> return (Bool (head xs == last xs)))
     , ("and" , \xs -> require "and" 2 xs >> case (head xs, last xs) of
         (Bool x, Bool y) -> return $ Bool (x && y)
@@ -87,6 +94,14 @@ core = M.fromList
         (Quote (App x xs), Quote Nil) -> return $ Quote (App x xs)
         (Quote Nil, Quote (App y ys)) -> return $ Quote (App y ys)
         _ -> E.throwE "concat: invalid argument type")
+    , ("range", \xs -> require "range" 2 xs >> case (head xs, last xs) of
+        (Int x, Int y) -> return $ Quote (App (Int x) (map Int [x + 1..y]))
+        _ -> E.throwE "range: invalid argument type")
+    , ("map", \xs -> require "map" 2 xs >> case (head xs, last xs) of
+        -- (map (lambda (f x) (+ x 1)) (range 1 10))
+        (f@(Lam _ _), Quote (App x xs)) -> mapM (\x -> evalAst (App f [x])) (x:xs)
+            >>= \xs' -> return $ Quote (App (head xs') (tail xs'))
+        _ -> E.throwE "map: invalid argument type")
     -- IO functions
     , ("puts", \xs -> require "puts" 1 xs
         >> evalAst (head xs)
@@ -132,6 +147,14 @@ evalAst (Lam args body) = return (Lam args body)
 evalAst (Let name body) = evalAst body >>= set name >> return Nil
 evalAst (If cond t f) = evalAst cond >>= \x -> if x == Bool True then evalAst t else evalAst f
 evalAst (Do exprs) = mapM evalAst exprs >>= \xs -> return (last xs)
+-- application handling
+evalAst (App (Lam args body) x) = do
+    envbefore <- T.lift S.get
+    result <- require "lambda" (length args) x
+            >> mapM_ (\(x, y) -> evalAst y >>= set x) (zip args x)
+            >> evalAst body
+    T.lift (S.put envbefore)
+    return result
 evalAst e = E.throwE $ "Invalid expression: " ++ (unpack . printAst) e
 
 qqIter :: Ast -> Ast -> Eval Ast

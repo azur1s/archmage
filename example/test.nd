@@ -1,10 +1,11 @@
-(comment
+(let (ismul n m) (= (% n m) 0))
 
-`(1 2 ~@'(3 4) ~(+ 2 3) 6 7)
+(let (fizzbuzz n) (do
+    (let m3 (ismul n 3))
+    (let m5 (ismul n 5))
+    (if (and m3 m5) (puts "FizzBuzz")
+        (if m3 (puts "Fizz")
+            (if m5 (puts "Buzz") (puts n))))
+    (puts " ")))
 
-`(1 2 ~@'(3 4) 5 6 7)
-
-()
-1 2
-
-)
+(map fizzbuzz (range 1 100))
