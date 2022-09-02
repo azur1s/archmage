@@ -32,9 +32,10 @@ isList a = if isListBool a then return () else E.throwE $ "isList: expected list
 
 -- | Map of core functions
 core :: M.Map Text ([Ast] -> Eval Ast)
-core = M.fromList
-    [
+core = M.fromList [
+
     -- Arithmetic functions
+
     ("+", \xs -> require "+" 2 xs >> case (head xs, last xs) of
         (Int x, Int y) -> return $ Int (x + y)
         (Float x, Float y) -> return $ Float (x + y)
@@ -75,7 +76,11 @@ core = M.fromList
     , ("not" , \xs -> require "not" 1 xs >> case head xs of
         Bool x -> return $ Bool (not x)
         _ -> E.throwE "not: invalid argument type")
+
     -- List-related functions
+
+    , ("pair?", \xs -> require "pair?" 1 xs >> return (Bool (isPairBool (head xs))))
+    , ("list?", \xs -> require "list?" 1 xs >> return (Bool (isListBool (head xs))))
     , ("list",\xs -> requireatleast "list" 1 xs >> return (Quote (App (head xs) (tail xs))))
     , ("cons", \xs -> require "cons" 2 xs >> case (head xs, last xs) of
         (Quote x, Quote (App y ys)) -> return $ Quote (App x (y:ys))
@@ -98,11 +103,12 @@ core = M.fromList
         (Int x, Int y) -> return $ Quote (App (Int x) (map Int [x + 1..y]))
         _ -> E.throwE "range: invalid argument type")
     , ("map", \xs -> require "map" 2 xs >> case (head xs, last xs) of
-        -- (map (lambda (f x) (+ x 1)) (range 1 10))
         (f@(Lam _ _), Quote (App x xs)) -> mapM (\x -> evalAst (App f [x])) (x:xs)
             >>= \xs' -> return $ Quote (App (head xs') (tail xs'))
         _ -> E.throwE "map: invalid argument type")
+
     -- IO functions
+
     , ("puts", \xs -> require "puts" 1 xs
         >> evalAst (head xs)
         >>= T.liftIO . putStr . unpack . printAst
@@ -111,9 +117,6 @@ core = M.fromList
         >> evalAst (head xs)
         >>= T.liftIO . putStrLn . unpack . printAst
         >> return Nil)
-    -- Utility functions
-    , ("pair?", \xs -> require "pair?" 1 xs >> return (Bool (isPairBool (head xs))))
-    , ("list?", \xs -> require "list?" 1 xs >> return (Bool (isListBool (head xs))))
     ]
 
 -- | Evaluate an abstract syntax tree
@@ -131,9 +134,7 @@ evalAst (App (Sym fn) x) = if M.member fn core then
             envbefore <- T.lift S.get
             result <- require fn (length args) x
                     -- set args (also evaluate symbols)
-                    >> mapM_
-                        (\(x, y) -> evalAst y >>= set x)
-                        (zip args x)
+                    >> mapM_ (\(x, y) -> evalAst y >>= set x) (zip args x)
                     >> evalAst body -- eval body with new env
             T.lift (S.put envbefore) -- restore env
             return result

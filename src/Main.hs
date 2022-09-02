@@ -56,7 +56,7 @@ repl = H.runInputT H.defaultSettings $ H.withInterrupt $ loop H.getInputLine ini
 banner :: String
 banner = unlines
     [ "Welcome to \x1b[1;94mnΔ\x1b[0m REPL!"
-    , "Type \x1b[1;95m:quit\x1b[0m to exit and \x1b[1;95m:help\x1b[0m for help."
+    , "Type \x1b[1;95m:quit\x1b[0m to quit and \x1b[1;95m:help\x1b[0m for help."
     , "Have fun!"
     ]
 
