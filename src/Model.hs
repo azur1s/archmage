@@ -94,17 +94,25 @@ lowerCst (CstList asts) = if null asts then Nil
 
         Sym "lambda" -> if length (tail asts) /= 2 then
             error "lambda: arity mismatch (required 2)"
-            else case lowerCst (asts !! 1) of -- Get argument(s)
+            else case lowerCst (asts !! 1) of -- get argument(s)
                 App x xs -> if isSymList xs then
                     Lam (map (\(Sym x) -> x) (x:xs)) (lowerCst (asts !! 2))
                     else error "Invalid lambda, symbol is expected in argument list"
                 _ -> error "Invalid lambda, argument should be a list"
 
+        Sym "λ" -> if length (tail asts) /= 2 then
+            error "λ: arity mismatch (required 2)"
+            else case lowerCst (asts !! 1) of
+                App x xs -> if isSymList xs then
+                    Lam (map (\(Sym x) -> x) (x:xs)) (lowerCst (asts !! 2))
+                    else error "Invalid λ, symbol is expected in argument list"
+                _ -> error "Invalid λ, argument should be a list"
+
         Sym "let" -> if length (tail asts) /= 2 then
             error "let: arity mismatch (required 2)"
-            else case lowerCst (asts !! 1) of -- Get name
+            else case lowerCst (asts !! 1) of -- get name
                 Sym n -> Let n (lowerCst (asts !! 2))
-                -- Convert (let (f a b c) ..) to (let f (lambda (a b c) ..))
+                -- convert (let (f a b c) ..) to (let f (lambda (a b c) ..))
                 App (Sym n) xs -> if isSymList xs then
                     Let n (Lam (map (\(Sym x) -> x) xs) (lowerCst (asts !! 2)))
                     else error "Invalid let, symbol is expected in argument list"

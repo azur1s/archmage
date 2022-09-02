@@ -38,7 +38,9 @@ str = lexeme $ T.pack <$> (char '"' *> manyTill L.charLiteral (char '"'))
 ident :: Parser String
 ident = lexeme $ (:) <$> oneOf first <*> many (oneOf rest)
     where
-        first = ['a'..'z'] ++ ['A'..'Z'] ++ "!@$%^&*-=_+\\|:,.<>/?"
+        first = ['a'..'z'] ++ ['A'..'Z']
+            ++ "!@$%^&*-=_+\\|:,.<>/?"
+            ++ "λ"
         rest = first ++ ['0'..'9']
 
 -- | Parsers for the model
