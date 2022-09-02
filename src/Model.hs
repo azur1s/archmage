@@ -137,6 +137,12 @@ require name n xs = if length xs == n then return () else
     $ T.unpack name ++ ": arity mismatch, expected " ++ show n
     ++ " but got " ++ show (length xs)
 
+requireatleast :: T.Text -> Int -> [a] -> Eval ()
+requireatleast name n xs = if length xs >= n then return () else
+    E.throwE
+    $ T.unpack name ++ ": arity mismatch, expected at least " ++ show n
+    ++ " but got " ++ show (length xs)
+
 -- | Environment manipulation
 get :: T.Text -> Eval Ast
 get x = T.lift S.get >>= \e -> case M.lookup x (env e) of

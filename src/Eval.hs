@@ -1,7 +1,7 @@
 module Eval where
 
 import Data.Text (Text, unpack)
-import Model (Eval, Ast(..), printAst, get, set, require)
+import Model (Eval, Ast(..), printAst, get, set, require, requireatleast)
 import qualified Data.Map as M
 import qualified Control.Monad.Trans as T
 import qualified Control.Monad.Trans.Except as E
@@ -69,6 +69,7 @@ core = M.fromList
         Bool x -> return $ Bool (not x)
         _ -> E.throwE "not: invalid argument type")
     -- List-related functions
+    , ("list",\xs -> requireatleast "list" 1 xs >> return (Quote (App (head xs) (tail xs))))
     , ("cons", \xs -> require "cons" 2 xs >> case (head xs, last xs) of
         (Quote x, Quote (App y ys)) -> return $ Quote (App x (y:ys))
         (x, Quote (App y ys)) -> return $ Quote (App x (y:ys))
@@ -134,7 +135,7 @@ evalAst (Do exprs) = mapM evalAst exprs >>= \xs -> return (last xs)
 evalAst e = E.throwE $ "Invalid expression: " ++ (unpack . printAst) e
 
 qqIter :: Ast -> Ast -> Eval Ast
-qqIter (UnquoteSplicing xs) acc = return $ App (Sym "concat") [xs, acc]
+qqIter (UnquoteSplicing xs) acc = evalAst $ App (Sym "concat") [xs, acc]
 qqIter e acc = do
     qqted <- quasiquote e
     evalAst $ App (Sym "cons") [qqted, acc]
