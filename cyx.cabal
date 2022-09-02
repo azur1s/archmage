@@ -1,11 +1,11 @@
 cabal-version:      3.0
-name:               neodelta
+name:               cyx
 version:            0.1.0
-synopsis:           Neodelta programming language
+synopsis:           cyx programming language
 
 -- A longer description of the package.
 -- description:
-homepage:           https://github.com/azur1s/neodelta
+homepage:           https://github.com/azur1s/cyx
 
 -- A URL where users can report bugs.
 -- bug-reports:
@@ -19,7 +19,7 @@ maintainer:         natapat.samutpong@gmail.com
 category:           Language
 extra-source-files: README.md
 
-executable nd
+executable cyx
     main-is:          Main.hs
 
     other-modules:

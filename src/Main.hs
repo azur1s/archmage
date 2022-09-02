@@ -15,7 +15,7 @@ import qualified System.Console.Haskeline as H
 
 -- | Display text prefixes
 prompt :: String
-prompt = "\x1b[1;94mnΔ\x1b[0m -> "
+prompt = "\x1b[1;94m->\x1b[0m "
 
 -- | Read-Eval-Print-Loop with Haskeline
 repl :: IO ()
@@ -55,7 +55,7 @@ repl = H.runInputT H.defaultSettings $ H.withInterrupt $ loop H.getInputLine ini
 
 banner :: String
 banner = unlines
-    [ "Welcome to \x1b[1;94mnΔ\x1b[0m REPL!"
+    [ "Welcome to \x1b[1;94mcyx REPL!\x1b[0m"
     , "Type \x1b[1;95m:quit\x1b[0m to quit and \x1b[1;95m:help\x1b[0m for help."
     , "Have fun!"
     ]
