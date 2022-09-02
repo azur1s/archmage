@@ -8,5 +8,5 @@
             (if m5 (puts "Buzz") (puts n))))
     (puts " ")))
 
-(putsln (map fizzbuzz (range 1 10)))
+(map fizzbuzz (range 1 10))
 (putsln (map (λ (x) (+ x 1)) (range 1 10)))
