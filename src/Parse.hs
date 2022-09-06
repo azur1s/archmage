@@ -3,16 +3,17 @@ module Parse where
 import Data.Foldable (toList)
 import Data.Functor (($>))
 import Data.List.NonEmpty (NonEmpty)
+import Data.Text (Text, pack, unpack)
 import Data.Void (Void)
 import Text.Megaparsec
 import Text.Megaparsec.Char
-import qualified Data.Text as T
-import qualified Model as M
+import Types (toSeq)
+import qualified Types as T
 import qualified Text.Megaparsec.Char.Lexer as L
 
-type Parser = Parsec Void T.Text
+type Parser = Parsec Void Text
 
--- | Basic parsers
+--- Basic parsers ---
 
 ws :: Parser ()
 ws = L.space
@@ -23,7 +24,7 @@ ws = L.space
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme ws
 
-symbol :: T.Text -> Parser T.Text
+symbol :: Text -> Parser Text
 symbol = L.symbol ws
 
 int :: Parser Int
@@ -32,8 +33,8 @@ int = lexeme L.decimal
 float :: Parser Float
 float = lexeme L.float
 
-str :: Parser T.Text
-str = lexeme $ T.pack <$> (char '"' *> manyTill L.charLiteral (char '"'))
+str :: Parser Text
+str = lexeme $ pack <$> (char '"' *> manyTill L.charLiteral (char '"'))
 
 ident :: Parser String
 ident = lexeme $ (:) <$> oneOf first <*> many (oneOf rest)
@@ -43,81 +44,54 @@ ident = lexeme $ (:) <$> oneOf first <*> many (oneOf rest)
             ++ "λ"
         rest = first ++ ['0'..'9']
 
--- | Parsers for the model
+--- Parsers for the value type ---
 
-parseBool :: Parser M.Cst
-parseBool = M.CstBool <$> (symbol "true" $> True <|> symbol "false" $> False)
+parseBool, parseInt, parseFloat, parseStr, parseSym :: Parser T.Value
+parseBool  = T.Bool <$> (symbol "true" $> True <|> symbol "false" $> False)
+parseInt   = T.Int <$> int
+parseFloat = T.Float <$> float
+parseStr   = T.Str . unpack <$> str
+parseSym   = T.Sym <$> ident
 
-parseInt :: Parser M.Cst
-parseInt = M.CstInt <$> int
+parseSeq :: Text -> Text -> Parser T.Value
+parseSeq l r = toSeq <$> between (symbol l) (symbol r) (many parseValue)
 
-parseFloat :: Parser M.Cst
-parseFloat = M.CstFloat <$> float
+parseQuote, parseUnquote, parseUnquoteSplicing, parseQuasiquote, parseCommented :: Parser T.Value
+parseQuote           = toSeq . (T.Sym "quote"            :) . pure <$> (symbol "'"  *> parseValue)
+parseUnquote         = toSeq . (T.Sym "unquote"          :) . pure <$> (symbol "~"  *> parseValue)
+parseUnquoteSplicing = toSeq . (T.Sym "unquote-splicing" :) . pure <$> (symbol "~@" *> parseValue)
+parseQuasiquote      = toSeq . (T.Sym "quasiquote"       :) . pure <$> (symbol "`"  *> parseValue)
+parseCommented       = toSeq . (T.Sym "quasiquote"       :) . pure <$> (symbol "#"  *> parseValue)
 
-parseStr :: Parser M.Cst
-parseStr = M.CstStr <$> str
-
-parseSym :: Parser M.Cst
-parseSym = M.CstSym . T.pack <$> ident
-
-parseList :: Parser M.Cst
-parseList = M.CstList <$> (symbol "(" *> many parseCst <* symbol ")")
-
-parseList2 :: Parser M.Cst
-parseList2 = M.CstList <$> (symbol "[" *> many parseCst <* symbol "]")
-
-parseList3 :: Parser M.Cst
-parseList3 = M.CstList <$> (symbol "{" *> many parseCst <* symbol "}")
-
-parseQuote :: Parser M.Cst
-parseQuote = do
-    cst <- symbol "'" *> parseCst
-    return $ M.CstList [M.CstSym "quote", cst]
-
-parseUnquote :: Parser M.Cst
-parseUnquote = do
-    cst <- symbol "~" *> parseCst
-    return $ M.CstList [M.CstSym "unquote", cst]
-
-parseUnquoteSplicing :: Parser M.Cst
-parseUnquoteSplicing = do
-    cst <- symbol "~@" *> parseCst
-    return $ M.CstList [M.CstSym "unquote-splicing", cst]
-
-parseQuasiquote :: Parser M.Cst
-parseQuasiquote = do
-    cst <- symbol "`" *> parseCst
-    return $ M.CstList [M.CstSym "quasiquote", cst]
-
-parseCommented :: Parser M.Cst
-parseCommented = do
-    cst <- symbol "#" *> parseCst
-    return $ M.CstList [M.CstSym "comment", cst]
-
-parseCst :: Parser M.Cst
-parseCst = parseBool
+parseValue :: Parser T.Value
+parseValue = parseBool
     <|> (try parseFloat <|> parseInt)
     <|> parseStr
     <|> parseSym
-    <|> parseList <|> parseList2 <|> parseList3
+    <|> parseSeq "(" ")" <|> parseSeq "[" "]" <|> parseSeq "{" "}"
     <|> parseQuote <|> try parseUnquoteSplicing <|> parseUnquote <|> parseQuasiquote
     <|> parseCommented
 
-parseProgram :: String -> String -> Either (ParseErrorBundle T.Text Void) [M.Cst]
-parseProgram path source = parse (ws *> many parseCst <* eof) path (T.pack source)
+parseProgram :: String -> String -> Either (ParseErrorBundle Text Void) T.Value
+parseProgram path source = parse (ws *> parseValue <* eof) path (pack source)
 
--- | Miscellaneous functions
+--- Helper functions ---
 
-errorUnpack :: ParseErrorBundle T.Text Void -> NonEmpty (SourcePos, T.Text)
-errorUnpack peb = fmap (\(err, pos) -> (pos, T.pack . parseErrorTextPretty $ err)) . fst $
+readstr :: String -> T.ExceptV T.Value
+readstr s = case parseProgram "<stdin>" ("(do " ++ s ++ ")") of
+    Left err -> T.throwStr $ concat $ fmtParseError $ errorUnpack err
+    Right v  -> return v
+
+errorUnpack :: ParseErrorBundle Text Void -> NonEmpty (SourcePos, Text)
+errorUnpack peb = fmap (\(err, pos) -> (pos, pack . parseErrorTextPretty $ err)) . fst $
     attachSourcePos errorOffset (bundleErrors peb) (bundlePosState peb)
 
-fmtParseError :: NonEmpty (SourcePos, T.Text) -> [String]
+fmtParseError :: NonEmpty (SourcePos, Text) -> [String]
 fmtParseError = fmap
     (\(pos, msg) -> sourceName pos ++ ":"
                 ++ (s . sourceLine) pos ++ ":"
                 ++ (s . sourceColumn) pos ++ " "
-                ++ (unln . T.unpack) msg)
+                ++ (unln . unpack) msg)
     . toList
     where
         s = show . unPos

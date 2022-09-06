@@ -1,0 +1,16 @@
+(def fizzbuzz (lam [n]
+    (let [f (= (% n 3) 0)
+          b (= (% n 5) 0)]
+    (if (and f b) "FizzBuzz"
+        (if f "Fizz" (if b "Buzz" (str n)))))))
+
+(macro cond (lam [& xs] (if (> (length xs) 0) (list 'if (car xs) (if (> (length xs) 1) (nth xs 1) (throw "odd number of forms to cond")) (cons 'cond (cdr (cdr xs)))))))
+
+(def foo 60)
+(cond
+    [>= foo 100] "Good"
+    [>= foo 50 ] "Normal"
+    [>= foo 0  ] "Bad")
+
+(def result (map fizzbuzz (range 1 20)))
+(map (lam [n] (put (str n " "))) result)
