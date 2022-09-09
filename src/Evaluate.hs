@@ -4,6 +4,7 @@ import Control.Monad.Trans (liftIO)
 import Data.Foldable (foldlM, foldrM)
 import Data.IORef (newIORef)
 import Environment (Env, Bindings (..), envGet, envSet, envApply)
+import System.Directory (getHomeDirectory)
 import Types (fmtValue, fmtValues, throwStr, toSeq, truthy)
 import qualified Data.Map.Strict as Map
 import qualified Types           as T
@@ -29,6 +30,13 @@ macroExpand env as'@(T.Seq (T.Sym a) as) = do
         Just (T.Macro f) -> f as >>= macroExpand env
         _                -> return as'
 macroExpand _ a = return a
+
+importStd :: Env -> String -> T.ExceptV T.Value
+importStd env name = do
+    home <- liftIO getHomeDirectory
+    let path = home ++ "/.cyxstd/" ++ name ++ ".cyx"
+    contents <- liftIO $ readFile path
+    eval env (T.Seq (T.Sym "eval") [T.Seq (T.Sym "read") [T.Str $ "(do " ++ contents ++ ")"]])
 
 evalAst :: Env -> T.Value -> [T.Value] -> T.ExceptV T.Value
 
@@ -85,6 +93,9 @@ evalAst env (T.Sym "quasiquote") [a] = quasiquote a >>= eval env
 evalAst _ (T.Sym "quasiquote") _   = throwStr "quasiquote: invalid syntax"
 
 -- Other builtins
+
+evalAst env (T.Sym "use") [T.Str name] = importStd env name
+evalAst _ (T.Sym "use") _ = throwStr "use: invalid syntax"
 
 evalAst env (T.Sym "do") as = foldlM (const $ eval env) T.Nil as
 

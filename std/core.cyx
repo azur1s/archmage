@@ -1,0 +1,12 @@
+; conditional
+(macro cond (lam [& xs]
+    (if (> (length xs) 0) (list
+        'if (car xs)
+            (if (> (length xs) 1)
+                (nth xs 1)
+                (throw "odd number of forms to cond"))
+            (cons 'cond (cdr (cdr xs)))))))
+
+; aliases
+(macro first (lam [& xs] (apply car xs)))
+(macro rest (lam [& xs] (apply cdr xs)))

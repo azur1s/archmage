@@ -35,7 +35,7 @@ executable cyx
         LambdaCase,
 
     build-depends:
-        base ^>=4.14.3.0,
+        base,
         -- Parse
         text,
         megaparsec,
