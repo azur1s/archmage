@@ -68,6 +68,14 @@ core = [
     -- List-related functions
 
     , ("list", return . toSeq)
+    , ("apply", \case
+        (T.Lam f : xs) -> concat' xs >>= f where
+            concat' :: [T.Value] -> T.ExceptV [T.Value]
+            -- concat' [T.Seq (T.Sym "quote") [x]] = return [x]
+            concat' [T.Seq x xs] = return (x : xs)
+            concat' (x : xs)     = (x :) <$> concat' xs
+            concat' _            = throwStr "apply: invalid argument types"
+        _ -> throwStr "apply: invalid argument types")
     , ("cons", \case
           [a, T.Nil]      -> return $ toSeq [a]
           [a, T.Seq b bs] -> return $ toSeq (a : b : bs)

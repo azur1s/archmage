@@ -7,6 +7,15 @@
                 (throw "odd number of forms to cond"))
             (cons 'cond (cdr (cdr xs)))))))
 
-; aliases
-(macro first (lam [& xs] (apply car xs)))
-(macro rest (lam [& xs] (apply cdr xs)))
+; aliases & shorthands
+(def first  car)
+(def rest   cdr)
+(def second  (lam [xs] (nth xs 1)))
+(def third   (lam [xs] (nth xs 2)))
+(def fourth  (lam [xs] (nth xs 3)))
+(def fifth   (lam [xs] (nth xs 4)))
+(def sixth   (lam [xs] (nth xs 5)))
+(def seventh (lam [xs] (nth xs 6)))
+(def eighth  (lam [xs] (nth xs 7)))
+(def ninth   (lam [xs] (nth xs 8)))
+(def tenth   (lam [xs] (nth xs 9)))

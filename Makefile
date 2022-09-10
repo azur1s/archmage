@@ -1,4 +1,5 @@
 all: exe std
+.PHONY: all exe std
 
 exe:
 	cabal install --overwrite-policy=always

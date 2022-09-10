@@ -14,10 +14,10 @@ emptyEnv :: IO Env
 emptyEnv = (: []) . Var <$> newIORef Map.empty
 
 bind :: [T.Value] -> [T.Value] -> Map.Map String T.Value -> Maybe (Map.Map String T.Value)
-bind [T.Sym "&", T.Sym key] values           m = Just $ Map.insert key (toSeq values) m
+bind [T.Sym "&", T.Sym key] values m         = Just $ Map.insert key (toSeq values) m
 bind (T.Sym key : keys)   (value : values) m = bind keys values $ Map.insert key value m
-bind []                 []               m = Just m
-bind _                  _                _ = Nothing
+bind [] [] m                                 = Just m
+bind _ _ _                                   = Nothing
 
 -- Insert a variable into the environment
 envSet :: Env -> String -> T.Value -> IO ()
