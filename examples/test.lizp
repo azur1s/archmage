@@ -1,3 +1,6 @@
 (use "foo.lizp")
 
-(print (str foo))
+(try
+    (a b)
+(catch e (println ":(")))
+

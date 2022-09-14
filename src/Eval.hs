@@ -1,6 +1,7 @@
 module Eval where
 
 import Control.Monad.Trans (liftIO)
+import Control.Monad.Trans.Except (runExceptT)
 import Data.Foldable (foldlM)
 import Env
 import Parse
@@ -37,6 +38,15 @@ evalAst env (Sym "if") [cond, true, false] = eval env cond
 evalAst env (Sym "if") [cond, true] = eval env cond
     >>= \result -> eval env (if truthy result then true else nil)
 evalAst _ (Sym "if") as = throwStr $ "if: Invalid arguments " ++ show as
+
+evalAst env (Sym "try") [try, List [Sym "catch", e, catch]] = do
+    result <- liftIO $ runExceptT $ eval env try
+    case result of
+        Right v  -> return v
+        Left err -> case envApply env [e] [err] of
+            Just tryEnv -> eval tryEnv catch
+            Nothing     -> throwStr $ "try: Invalid catch arguments"
+evalAst _ (Sym "try") as = throwStr $ "try: Invalid arguments " ++ show as
 
 evalAst env (Sym "do") as = foldlM (const $ eval env) nil as
 
