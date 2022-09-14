@@ -1,5 +1,4 @@
-(use "foo.lizp")
-
 (try
     (eval a)
-(catch e (println (str "brok : " e)))
+(catch e
+    (println (str "brok : " e))))
