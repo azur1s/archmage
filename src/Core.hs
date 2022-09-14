@@ -20,8 +20,6 @@ core = [
     , ("println", \case
         [a] -> liftIO $ putStr (fmtValueLn a) >> return nil
         _   -> invalid "println" 1)
-    , ("str", \case
-        [a] -> return $ Str (fmtValue a)
-        _   -> invalid "str" 1)
+    , ("str", return . Str . concatMap fmtValue)
     ]
 
