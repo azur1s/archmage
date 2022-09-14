@@ -6,7 +6,9 @@ import Env
 import Eval
 import Parse (readstr)
 import Types
+import System.Directory (canonicalizePath, setCurrentDirectory)
 import System.Environment (getArgs)
+import System.FilePath (takeDirectory)
 import System.IO (hPutStrLn, stderr)
 
 main :: IO ()
@@ -16,6 +18,9 @@ main = do
         []       -> putStrLn "no file provided"
         path : _ -> do
             contents <- readFile path
+
+            canonicalizePath (takeDirectory path) >>= setCurrentDirectory
+
             env <- emptyEnv
             mapM_ (\(name, l) -> envSet env name $ Fn l) core
             _ <- envSet env "eval" (Fn $ evalFn env)

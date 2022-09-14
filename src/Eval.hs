@@ -3,6 +3,7 @@ module Eval where
 import Control.Monad.Trans (liftIO)
 import Data.Foldable (foldlM)
 import Env
+import Parse
 import Types
 
 evalAst :: Env -> Value -> [Value] -> Except Value
@@ -38,6 +39,10 @@ evalAst env (Sym "if") [cond, true] = eval env cond
 evalAst _ (Sym "if") as = throwStr $ "if: Invalid arguments " ++ show as
 
 evalAst env (Sym "do") as = foldlM (const $ eval env) nil as
+
+evalAst env (Sym "use") [Str path] = do
+    code <- liftIO $ readFile path
+    readstr code >>= eval env
 
 evalAst env f as = do
     f' <- eval env f
