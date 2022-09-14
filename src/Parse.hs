@@ -7,7 +7,6 @@ import Data.Text (Text, pack, unpack)
 import Data.Void (Void)
 import Text.Megaparsec
 import Text.Megaparsec.Char
-import Types (toSeq)
 import qualified Types as T
 import qualified Text.Megaparsec.Char.Lexer as L
 
@@ -53,31 +52,27 @@ parseFloat = T.Float <$> float
 parseStr   = T.Str . unpack <$> str
 parseSym   = T.Sym <$> ident
 
-parseSeq :: Text -> Text -> Parser T.Value
-parseSeq l r = toSeq <$> between (symbol l) (symbol r) (many parseValue)
+parseList :: Text -> Text -> Parser T.Value
+parseList l r = T.List <$> between (symbol l) (symbol r) (many parseValue)
 
-parseQuote, parseUnquote, parseUnquoteSplicing, parseQuasiquote, parseCommented :: Parser T.Value
-parseQuote           = toSeq . (T.Sym "quote"            :) . pure <$> (symbol "'"  *> parseValue)
-parseUnquote         = toSeq . (T.Sym "unquote"          :) . pure <$> (symbol "~"  *> parseValue)
-parseUnquoteSplicing = toSeq . (T.Sym "unquote-splicing" :) . pure <$> (symbol "~@" *> parseValue)
-parseQuasiquote      = toSeq . (T.Sym "quasiquote"       :) . pure <$> (symbol "`"  *> parseValue)
-parseCommented       = toSeq . (T.Sym "quasiquote"       :) . pure <$> (symbol "#"  *> parseValue)
+parseQuote, parseUnquote :: Parser T.Value
+parseQuote   = T.List . (T.Sym "quote"   :) . pure <$> (symbol "'" *> parseValue)
+parseUnquote = T.List . (T.Sym "unquote" :) . pure <$> (symbol "~" *> parseValue)
 
 parseValue :: Parser T.Value
 parseValue = parseBool
     <|> (try parseFloat <|> parseInt)
     <|> parseStr
     <|> parseSym
-    <|> parseSeq "(" ")" <|> parseSeq "[" "]" <|> parseSeq "{" "}"
-    <|> parseQuote <|> try parseUnquoteSplicing <|> parseUnquote <|> parseQuasiquote
-    <|> parseCommented
+    <|> parseList "(" ")" <|> parseList "[" "]" <|> parseList "{" "}"
+    <|> parseQuote <|> parseUnquote
 
 parseProgram :: String -> String -> Either (ParseErrorBundle Text Void) T.Value
 parseProgram path source = parse (ws *> parseValue <* eof) path (pack source)
 
 --- Helper functions ---
 
-readstr :: String -> T.ExceptV T.Value
+readstr :: String -> T.Except T.Value
 readstr s = case parseProgram "<stdin>" ("(do " ++ s ++ ")") of
     Left err -> T.throwStr $ concat $ fmtParseError $ errorUnpack err
     Right v  -> return v

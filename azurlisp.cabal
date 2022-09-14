@@ -1,34 +1,30 @@
 cabal-version:      3.0
-name:               cyx
+name:               azurlisp
 version:            0.1.0
-synopsis:           cyx programming language
+synopsis:           azur's lisp
 
--- A longer description of the package.
 -- description:
-homepage:           https://github.com/azur1s/cyx
+homepage:           https://github.com/azur1s/azurlisp
 
--- A URL where users can report bugs.
 -- bug-reports:
 license:            MIT
 license-file:       LICENSE
 author:             Natapat Samutpong
 maintainer:         natapat.samutpong@gmail.com
 
--- A copyright notice.
 -- copyright:
 category:           Language
 extra-source-files: README.md
 
-executable cyx
+executable azurlisp
     main-is:          Main.hs
 
     other-modules:
-        Core,
-        Environment,
-        Evaluate,
-        Parse,
-        Read,
         Types,
+        Parse,
+        Env,
+        Eval,
+        Core,
 
     other-extensions:
         OverloadedStrings,
@@ -43,9 +39,6 @@ executable cyx
         containers,
         mtl,
         transformers,
-        -- Repl
-        directory,
-        readline,
 
     hs-source-dirs:   src
     default-language: Haskell2010

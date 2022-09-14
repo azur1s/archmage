@@ -1,9 +1,6 @@
-all: exe std
-.PHONY: all exe std
+all: exe
+.PHONY: all exe
 
 exe:
 	cabal install --overwrite-policy=always
 
-std:
-	mkdir -p $(HOME)/.cyxstd/
-	cp std/*.cyx $(HOME)/.cyxstd/

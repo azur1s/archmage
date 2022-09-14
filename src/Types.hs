@@ -1,67 +1,45 @@
 module Types where
 
+import Control.Monad.Trans (liftIO)
 import Control.Monad.Trans.Except (ExceptT, throwE)
 
-type Lam = [Value] -> ExceptV Value
+type Fn     = [Value] -> Except Value
+type Except = ExceptT Value IO
 
-data Value = Nil
-           | Bool  Bool
+data Value = Bool  Bool
            | Int   Int
            | Float Float
            | Str   String
            | Sym   String
-           | Seq   Value [Value]
-           | Lam   Lam
-           | Macro Lam
+           | List  [Value]
+           | Quote Value
+           | Fn    Fn
 
-instance Eq Value where
-    Nil      == Nil      = True
-    Bool a   == Bool b   = a == b
-    Int a    == Int b    = a == b
-    Float a  == Float b  = a == b
-    Str a    == Str b    = a == b
-    Sym a    == Sym b    = a == b
-    Seq a as == Seq b bs = a == b && as == bs
-    Lam _    == Lam _    = False
-    Macro _  == Macro _  = False
-    _        == _        = False
+instance Show Value where
+    show (Bool  b) = show b
+    show (Int   i) = show i
+    show (Float f) = show f
+    show (Str   s) = show s
+    show (Sym   s) = s
+    show (List  l) | null l    = "()"
+                   | otherwise = "(" ++ unwords (map show l) ++ ")"
+    show (Quote v) = "'" ++ show v
+    show (Fn    _) = "<fn>"
 
---- Error and exceptions ---
+fmtValue :: Value -> String
+fmtValue (Str s) = s
+fmtValue v       = show v
 
-type ExceptV = ExceptT Value IO
+fmtValueLn :: Value -> String 
+fmtValueLn v = fmtValue v ++ "\n"
 
-throwStr :: String -> ExceptV a
+throwStr :: String -> Except a
 throwStr = throwE . Str
 
---- Helper functions ---
+nil :: Value
+nil = List []
 
 truthy :: Value -> Bool
 truthy (Bool True) = True
 truthy _           = False
 
-toSeq :: [Value] -> Value
-toSeq [] = Nil
-toSeq as = Seq (head as) (tail as)
-
-toQSeq :: [Value] -> Value
-toQSeq [] = Seq (Sym "quote") []
-toQSeq as = Seq (Sym "quote") as
-
-fmtValue :: Bool -> Value -> String
-fmtValue q     (Seq (Sym "quote") as)            = "'"  ++ fmtValue q (toSeq as)
-fmtValue q     (Seq (Sym "quasiquote") as)       = "`"  ++ fmtValue q (toSeq as)
-fmtValue q     (Seq (Sym "unquote") as)          = "~"  ++ fmtValue q (toSeq as)
-fmtValue q     (Seq (Sym "unquote-splicing") as) = "~@" ++ fmtValue q (toSeq as)
-fmtValue _     Nil        = "nil"
-fmtValue _     (Bool b)   = if b then "#t" else "#f"
-fmtValue _     (Int i)    = show i
-fmtValue _     (Float f)  = show f
-fmtValue True  (Str s)    = "\"" ++ s ++ "\""
-fmtValue False (Str s)    = s
-fmtValue _     (Sym s)    = s
-fmtValue q     (Seq a as) = "(" ++ fmtValue q a ++ concatMap ((" " ++) . fmtValue q) as ++ ")"
-fmtValue _     (Lam _)    = "<lambda>"
-fmtValue _     (Macro _)  = "<macro>"
-
-fmtValues :: Bool -> [Value] -> String
-fmtValues q vs = "(" ++ unwords (map (fmtValue q) vs) ++ ")"
