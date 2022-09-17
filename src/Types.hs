@@ -1,11 +1,5 @@
 module Types where
 
-import Control.Monad.Trans (liftIO)
-import Control.Monad.Trans.Except (ExceptT, throwE)
-
-type Fn     = [Value] -> Except Value
-type Except = ExceptT Value IO
-
 data Value = Bool  Bool
            | Int   Int
            | Float Float
@@ -13,28 +7,25 @@ data Value = Bool  Bool
            | Sym   String
            | List  [Value]
            | Quote Value
-           | Fn    Fn
 
 instance Show Value where
-    show (Bool  b) = show b
-    show (Int   i) = show i
-    show (Float f) = show f
-    show (Str   s) = show s
-    show (Sym   s) = s
-    show (List  l) | null l    = "()"
-                   | otherwise = "(" ++ unwords (map show l) ++ ")"
-    show (Quote v) = "'" ++ show v
-    show (Fn    _) = "<fn>"
+    show (Bool b)  = "Bool "  ++ show b
+    show (Int i)   = "Int "   ++ show i
+    show (Float f) = "Float " ++ show f
+    show (Str s)   = "Str "   ++ show s
+    show (Sym s)   = "Sym "   ++ show s
+    show (List l)  = show l
+    show (Quote v) = "Quote " ++ show v
 
 fmtValue :: Value -> String
-fmtValue (Str s) = s
-fmtValue v       = show v
-
-fmtValueLn :: Value -> String 
-fmtValueLn v = fmtValue v ++ "\n"
-
-throwStr :: String -> Except a
-throwStr = throwE . Str
+fmtValue (Bool  b) = show b
+fmtValue (Int   i) = show i
+fmtValue (Float f) = show f
+fmtValue (Str   s) = s
+fmtValue (Sym   s) = s
+fmtValue (List  l) | null l    = "()"
+                   | otherwise = "(" ++ unwords (map show l) ++ ")"
+fmtValue (Quote v) = "'" ++ show v
 
 nil :: Value
 nil = List []

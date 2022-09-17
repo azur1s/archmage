@@ -22,9 +22,7 @@ executable azurlisp
     other-modules:
         Types,
         Parse,
-        Env,
-        Eval,
-        Core,
+        Comp,
 
     other-extensions:
         OverloadedStrings,

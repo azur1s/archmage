@@ -56,7 +56,7 @@ parseList :: Text -> Text -> Parser T.Value
 parseList l r = T.List <$> between (symbol l) (symbol r) (many parseValue)
 
 parseQuote, parseUnquote :: Parser T.Value
-parseQuote   = T.List . (T.Sym "quote"   :) . pure <$> (symbol "'" *> parseValue)
+parseQuote   = T.Quote <$> parseList "{" "}"
 parseUnquote = T.List . (T.Sym "unquote" :) . pure <$> (symbol "~" *> parseValue)
 
 parseValue :: Parser T.Value
@@ -64,7 +64,7 @@ parseValue = parseBool
     <|> (try parseFloat <|> parseInt)
     <|> parseStr
     <|> parseSym
-    <|> parseList "(" ")" <|> parseList "[" "]" <|> parseList "{" "}"
+    <|> parseList "(" ")" <|> parseList "[" "]"
     <|> parseQuote <|> parseUnquote
 
 parseProgram :: String -> String -> Either (ParseErrorBundle Text Void) T.Value
@@ -72,10 +72,10 @@ parseProgram path source = parse (ws *> parseValue <* eof) path (pack source)
 
 --- Helper functions ---
 
-readstr :: String -> T.Except T.Value
+readstr :: String -> Either String T.Value
 readstr s = case parseProgram "<stdin>" ("(do " ++ s ++ ")") of
-    Left err -> T.throwStr $ concat $ fmtParseError $ errorUnpack err
-    Right v  -> return v
+    Left err -> Left  $ concat $ fmtParseError $ errorUnpack err
+    Right v  -> Right $ v
 
 errorUnpack :: ParseErrorBundle Text Void -> NonEmpty (SourcePos, Text)
 errorUnpack peb = fmap (\(err, pos) -> (pos, pack . parseErrorTextPretty $ err)) . fst $

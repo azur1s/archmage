@@ -1,4 +1,2 @@
-(try
-    (eval a)
-(catch e
-    (println (str "brok : " e))))
+(console.log "Hello, World")
+69
