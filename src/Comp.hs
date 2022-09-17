@@ -8,16 +8,17 @@ type Except = ExceptT Value IO
 throwErr :: String -> Except a
 throwErr = throwE . Str
 
-data JsExpr = JsBool  Bool
+data Js = JsBool  Bool
             | JsInt   Int
             | JsFloat Float
             | JsStr   String
             | JsVar   String
-            | JsCall  JsExpr [JsExpr]
-            | JsLam   [String] JsExpr
-            | JsBin   String JsExpr JsExpr
-            | JsRet   JsExpr
-            | JsExprs [JsExpr]
+            | JsCall  Js [Js]
+            | JsLam   [String] Js
+            | JsBin   String Js Js
+            | JsRet   Js
+            | JsConst String Js
+            | JsBlock [Js]
             deriving (Eq, Show, Read)
 
 printArgs :: [String] -> String
@@ -25,7 +26,7 @@ printArgs [] = ""
 printArgs [x] = x
 printArgs (x : xs) = x ++ ", " ++ printArgs xs
 
-printJS :: JsExpr -> String
+printJS :: Js -> String
 -- Atom
 printJS (JsBool b)  = show b
 printJS (JsInt i)   = show i
@@ -43,9 +44,12 @@ printJS (JsLam args body) = unlines
     ]
 printJS (JsBin op a b) = printJS a ++ " " ++ op ++ " " ++ printJS b
 printJS (JsRet e) = "return " ++ printJS e ++ ";"
-printJS (JsExprs es) = unwords $ map (++ ";") $ map printJS es
+printJS (JsConst name e) = "const " ++ name ++ " = " ++ printJS e ++ ";"
+printJS (JsBlock es) = unwords $
+    map (\e -> if last e == ';' then e else e ++ ";") $
+    map printJS es
 
-compile :: Value -> Except JsExpr
+compile :: Value -> Except Js
 compile (Bool b)  = return $ JsBool b
 compile (Int i)   = return $ JsInt i
 compile (Float f) = return $ JsFloat f
@@ -54,7 +58,7 @@ compile (Sym s)   = return $ JsVar s
 compile (List xs) = compileList xs
 compile a = throwErr $ "Todo: " ++ show a
 
-compileList :: [Value] -> Except JsExpr
+compileList :: [Value] -> Except Js
 compileList [] = return $ JsVar "null"
 compileList (Sym "do" : body) = do
     body' <- mapM compile body
@@ -63,9 +67,34 @@ compileList (Sym "do" : body) = do
         [x] -> return $ JsCall (JsLam [] (JsRet x)) []
         _   -> do
             let (body'', last') = (init body', last body')
-            return $ JsCall (JsLam [] (JsExprs (body'' ++ [JsRet last']))) []
-compileList (Sym call : args) = do
-    args' <- mapM compile args
-    return $ JsCall (JsVar call) args'
+            return $ JsCall (JsLam [] (JsBlock (body'' ++ [JsRet last']))) []
+compileList (Sym call : args) = case lookup call builtins of
+    Just f  -> f args
+    Nothing -> do
+        args' <- mapM compile args
+        return $ JsCall (JsVar ("_defined_" ++ call)) args'
 compileList (x : xs) = throwErr $ "Invalid expression: " ++ show x ++ " " ++ show xs
+
+type Builtin = [Value] -> Except Js
+
+compileBin :: String -> [Value] -> Except Js
+compileBin op [] = throwErr $ "Not enough arguments to " ++ op
+compileBin _ [a]   = compile a
+compileBin op as   = foldl1 (JsBin op) <$> mapM compile as
+
+builtins :: [(String, Builtin)]
+builtins =
+    [ ("+", compileBin "+")
+    , ("-", compileBin "-")
+    , ("*", compileBin "*")
+    , ("/", compileBin "/")
+
+    , ("def", \case
+        [Sym name, body] -> compile body >>= \b -> return $ JsConst name b
+        _ -> throwErr "Invalid arguments for builtin `def`")
+
+    , ("print" , \case
+        [] -> throwErr "Invalid arguments for builtin `print`"
+        as -> mapM compile as >>= \as' -> return $ JsCall (JsVar "console.log") as')
+    ]
 

@@ -1,2 +1,2 @@
-(console.log "Hello, World")
-69
+(def foo 34)
+(print (+ foo (do (def a 35) a)))
