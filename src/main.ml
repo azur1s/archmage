@@ -3,7 +3,7 @@ open Comp
 open Eval
 
 let test = [
-    List [Sym "def"; Sym "foo"; List [Sym "+"; Int 17; Int 17]];
+    List [Sym "def"; Sym "foo"; Key "Int"; List [Sym "+"; Int 17; Int 17]];
     List [Sym "if";
         List [Sym "not"; List [Sym "="; Sym "foo"; Int 34]];
         List [Sym "print"; List [Sym "+"; List [Sym "*"; Sym "foo"; Int 2]; Int 1]];

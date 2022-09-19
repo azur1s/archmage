@@ -3,6 +3,7 @@ type value =
     | Int  of int
     | Str  of string
     | Sym  of string
+    | Key  of string (* Symbol that starts with a colon *)
     | List of value list
 
 type ir =
@@ -16,6 +17,7 @@ type ir =
     | Jump  of int (* Normal jump *)
     | JumpF of int (* Jump if false *)
 and ir_value =
+    | IRNil
     | IRBool of bool
     | IRInt  of int
     | IRStr  of string
@@ -26,6 +28,7 @@ let rec fmt_value (v : value) : string = match v with
     | Int  i -> string_of_int i
     | Str  s -> "\"" ^ s ^ "\""
     | Sym  s -> s
+    | Key  s -> ":" ^ s
     | List l -> "(" ^ String.concat " " (List.map fmt_value l) ^ ")"
 
 let rec fmt_ir (ir : ir) : string = match ir with
@@ -47,11 +50,13 @@ let rec fmt_ir (ir : ir) : string = match ir with
     | Jump  i -> "jmp  " ^ string_of_int i
     | JumpF i -> "jmpf " ^ string_of_int i
 and fmt_ir_value (v : ir_value) : string = match v with
-    | IRBool b -> if b then "$true" else "$false"
+    | IRNil    -> "NIL"
+    | IRBool b -> if b then "TRUE" else "FALSE"
     | IRInt  i -> "$" ^ string_of_int i
     | IRStr  s -> "$\"" ^ s ^ "\""
     | IRList l -> "$(" ^ String.concat " " (List.map fmt_ir_value l) ^ ")"
 and fmt_print_ir_value (v: ir_value) : string = match v with
+    | IRNil    -> "nil"
     | IRBool b -> string_of_bool b
     | IRInt  i -> string_of_int i
     | IRStr  s -> s

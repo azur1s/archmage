@@ -28,7 +28,7 @@ type evaluator = {
 let evaluator_new (irs : ir list) : evaluator = {
     stack = ref [];
     progs = irs;
-    pc = ref 0;
+    pc    = ref 0;
     env   = ref [];
 }
 
@@ -45,8 +45,7 @@ let dbg_evaluator (e : evaluator) : unit =
 
 let ( >?= ) = Option.bind
 
-let rec eval (e : evaluator ref) : unit =
-    if !(!e.pc) >= List.length !e.progs then () else
+let rec eval (e : evaluator ref) : unit = if !(!e.pc) >= List.length !e.progs then () else
     let p = List.nth !e.progs !(!e.pc) in
     jump !e 1;
     match p with
@@ -89,6 +88,10 @@ let rec eval (e : evaluator ref) : unit =
         | "print" -> (match stack_pop !e.stack with
             | Some v -> print_endline (fmt_print_ir_value v); eval e
             | None   -> failwith "Stack underflow")
+        | "join" -> (match (stack_pop !e.stack, stack_pop !e.stack) with
+            | (Some (IRStr  a), Some (IRStr  b)) -> stack_push !e.stack (IRStr  (a ^ b)); eval e
+            | (Some (IRList a), Some (IRList b)) -> stack_push !e.stack (IRList (a @ b)); eval e
+            | _                                      -> failwith "Invalid arguments to join")
         | f       -> failwith ("Unknown function: " ^ f))
     | Load s -> (match env_get !e.env s with
         | Some v -> stack_push !e.stack v; eval e
