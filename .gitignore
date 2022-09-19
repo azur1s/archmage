@@ -1,1 +1,4 @@
-archmage
+.vscode/
+**/_build/
+stdlib/bin/
+tools/vscode-extension/node_modules/
