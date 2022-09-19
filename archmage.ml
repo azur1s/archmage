@@ -1,4 +1,6 @@
-(* Type definitions *)
+(********************
+ * Type definitions *
+ ********************)
 
 type value =
     | Bool of bool
@@ -8,10 +10,11 @@ type value =
     | List of value list
 
 type ir =
+    | Add   | Sub  | Mul | Div | Mod
+    | Equal | Less | Great
+    | And   | Or   | Not
     | Push  of ir_value
     | Call  of string
-    | Add | Sub | Mul | Div | Mod
-    | Equal
     | Load  of string
     | Store of string
     | Jump  of int (* Normal jump *)
@@ -22,7 +25,9 @@ and ir_value =
     | IRStr  of string
     | IRList of ir_value list
 
-(* Type formatters *)
+(*******************
+ * Type formatters *
+ *******************)
 
 let rec fmt_value (v : value) : string = match v with
     | Bool b -> string_of_bool b
@@ -32,17 +37,22 @@ let rec fmt_value (v : value) : string = match v with
     | List l -> "(" ^ String.concat " " (List.map fmt_value l) ^ ")"
 
 let rec fmt_ir (ir : ir) : string = match ir with
-    | Push  v -> "push "  ^ fmt_ir_value v
-    | Call  s -> "call "  ^ s
-    | Add     -> "add  "
-    | Sub     -> "sub  "
-    | Mul     -> "mul  "
-    | Div     -> "div  "
-    | Mod     -> "mod  "
-    | Equal   -> "equl "
-    | Load  s -> "load "  ^ s
-    | Store s -> "stre " ^ s
-    | Jump  i -> "jmp "  ^ string_of_int i
+    | Add     -> "add"
+    | Sub     -> "sub"
+    | Mul     -> "mul"
+    | Div     -> "div"
+    | Mod     -> "mod"
+    | Equal   -> "equl"
+    | Less    -> "less"
+    | Great   -> "grea"
+    | And     -> "and"
+    | Or      -> "or"
+    | Not     -> "not"
+    | Push  v -> "push " ^ fmt_ir_value v
+    | Call  s -> "call " ^ s
+    | Load  s -> "load " ^ s
+    | Store s -> "stor " ^ s
+    | Jump  i -> "jmp  " ^ string_of_int i
     | JumpF i -> "jmpf " ^ string_of_int i
 and fmt_ir_value (v : ir_value) : string = match v with
     | IRBool b -> if b then "$true" else "$false"
@@ -55,7 +65,9 @@ and fmt_print_ir_value (v: ir_value) : string = match v with
     | IRStr  s -> s
     | IRList l -> "(" ^ String.concat " " (List.map fmt_print_ir_value l) ^ ")"
 
-(* Compliation *)
+(***************
+ * Compliation *
+ ***************)
 
 type compile_result = (ir list, string) result
 let ( >>= ) = Result.bind
@@ -78,40 +90,43 @@ and compile_list (f : value) (args : value list) : compile_result = match f with
         | [c; t; e] -> compile c >>= fun c' ->
                        compile t >>= fun t' ->
                        compile e >>= fun e' ->
-                       Ok (c' @ [JumpF (List.length t' + 2)]
+                       Ok (c' @ [JumpF (List.length t' + 1)]
                          @ t' @ [Jump (List.length e')]
                          @ e')
         | _         -> Error "Invalid arguments to if")
     | Sym "+" -> (match args with
-        | [a; b] -> compile a >>= fun a' ->
-                    compile b >>= fun b' ->
-                    Ok (a' @ b' @ [Add])
+        | [a; b] -> compile_binop Add a b
         | _      -> Error "Invalid arguments to +")
     | Sym "-" -> (match args with
-        | [a; b] -> compile a >>= fun a' ->
-                    compile b >>= fun b' ->
-                    Ok (a' @ b' @ [Sub])
+        | [a; b] -> compile_binop Sub a b
         | _      -> Error "Invalid arguments to -")
     | Sym "*" -> (match args with
-        | [a; b] -> compile a >>= fun a' ->
-                    compile b >>= fun b' ->
-                    Ok (a' @ b' @ [Mul])
+        | [a; b] -> compile_binop Mul a b
         | _      -> Error "Invalid arguments to *")
     | Sym "/" -> (match args with
-        | [a; b] -> compile a >>= fun a' ->
-                    compile b >>= fun b' ->
-                    Ok (a' @ b' @ [Div])
+        | [a; b] -> compile_binop Div a b
         | _      -> Error "Invalid arguments to /")
     | Sym "%" -> (match args with
-        | [a; b] -> compile a >>= fun a' ->
-                    compile b >>= fun b' ->
-                    Ok (a' @ b' @ [Mod])
+        | [a; b] -> compile_binop Mod a b
         | _      -> Error "Invalid arguments to %")
     | Sym "=" -> (match args with
-        | [a; b] -> compile a >>= fun a' ->
-                    compile b >>= fun b' ->
-                    Ok (a' @ b' @ [Equal])
+        | [a; b] -> compile_binop Equal a b
         | _      -> Error "Invalid arguments to =")
+    | Sym "<" -> (match args with
+        | [a; b] -> compile_binop Less a b
+        | _      -> Error "Invalid arguments to <")
+    | Sym ">" -> (match args with
+        | [a; b] -> compile_binop Great a b
+        | _      -> Error "Invalid arguments to >")
+    | Sym "and" -> (match args with
+        | [a; b] -> compile_binop And a b
+        | _      -> Error "Invalid arguments to and")
+    | Sym "or" -> (match args with
+        | [a; b] -> compile_binop Or a b
+        | _      -> Error "Invalid arguments to or")
+    | Sym "not" -> (match args with
+        | [a] -> compile a >>= fun a' -> Ok (a' @ [Not])
+        | _   -> Error "Invalid arguments to not")
     | Sym "print" -> (match args with
         | [a] -> compile a >>= fun a' -> Ok (a' @ [Call "print"])
         | _   -> Error "Invalid arguments to print")
@@ -119,13 +134,20 @@ and compile_list (f : value) (args : value list) : compile_result = match f with
                Ok (args' @ [Call s])
     | _ -> Error "Invalid function"
 
+and compile_binop (op : ir) (a : value) (b : value) : compile_result =
+    compile a >>= fun a' ->
+    compile b >>= fun b' ->
+    Ok (a' @ b' @ [op])
+
 and compiles (vs : value list) : compile_result = match vs with
     | [] -> Ok []
     | v :: vs -> compile v   >>= fun v' ->
                  compiles vs >>= fun vs' ->
                  Ok (v' @ vs')
 
-(* Evaluation *)
+(**************
+ * Evaluation *
+ **************)
 
 type env   = (string * ir_value) list ref
 and  stack = ir_value list ref
@@ -145,7 +167,6 @@ let stack_pop (stack : stack) : ir_value option =
 type evaluator = {
     (* Stack *)
     stack : stack;
-    sp    : int ref;
     (* Programs *)
     progs : ir list;
     pc    : int ref;
@@ -155,30 +176,29 @@ type evaluator = {
 
 let evaluator_new (irs : ir list) : evaluator = {
     stack = ref [];
-    sp    = ref 0;
     progs = irs;
     pc = ref 0;
     env   = ref [];
 }
 
+let jump (e : evaluator) (i : int) : unit =
+    e.pc := !(e.pc) + i
+
 let dbg_evaluator (e : evaluator) : unit =
-    Printf.printf "stack: %s\nsp: %d\npc: %d"
+    Printf.printf "\n\x1b[36mstack: \x1b[0m%s\n\x1b[36mnext: \x1b[0m%s (pc : %d)\n"
         (String.concat " " (List.map fmt_ir_value !(e.stack)))
-        !(e.sp)
+        (if !(e.pc) >= List.length e.progs
+         then "none"
+         else fmt_ir (List.nth e.progs !(e.pc)))
         !(e.pc)
 
 let ( >?= ) = Option.bind
 
-let rec eval (e : evaluator ref) : unit = if !(!e.pc) >= List.length !e.progs then () else
+let rec eval (e : evaluator ref) : unit =
+    if !(!e.pc) >= List.length !e.progs then () else
     let p = List.nth !e.progs !(!e.pc) in
-    e := {!e with pc = ref (!(!e.pc) + 1)};
+    jump !e 1;
     match p with
-    | Push v -> stack_push !e.stack v; eval e
-    | Call s -> (match s with
-        | "print" -> (match stack_pop !e.stack with
-            | Some v -> print_endline (fmt_print_ir_value v); eval e
-            | None   -> failwith "Stack underflow")
-        | f       -> failwith ("Unknown function: " ^ f))
     | Add -> (match (stack_pop !e.stack, stack_pop !e.stack) with
         | (Some (IRInt a), Some (IRInt b)) -> stack_push !e.stack (IRInt (a + b)); eval e
         | _                                -> failwith "Invalid arguments to +")
@@ -198,33 +218,57 @@ let rec eval (e : evaluator ref) : unit = if !(!e.pc) >= List.length !e.progs th
         | (Some (IRBool a), Some (IRBool b)) -> stack_push !e.stack (IRBool (a = b)); eval e
         | (Some (IRInt  a), Some (IRInt  b)) -> stack_push !e.stack (IRBool (a = b)); eval e
         | _                                  -> failwith "Invalid arguments to =")
+    | Less -> (match (stack_pop !e.stack, stack_pop !e.stack) with
+        | (Some (IRInt a), Some (IRInt b)) -> stack_push !e.stack (IRBool (a < b)); eval e
+        | _                                -> failwith "Invalid arguments to <")
+    | Great -> (match (stack_pop !e.stack, stack_pop !e.stack) with
+        | (Some (IRInt a), Some (IRInt b)) -> stack_push !e.stack (IRBool (a > b)); eval e
+        | _                                -> failwith "Invalid arguments to >")
+    | And -> (match (stack_pop !e.stack, stack_pop !e.stack) with
+        | (Some (IRBool a), Some (IRBool b)) -> stack_push !e.stack (IRBool (a && b)); eval e
+        | _                                  -> failwith "Invalid arguments to and")
+    | Or -> (match (stack_pop !e.stack, stack_pop !e.stack) with
+        | (Some (IRBool a), Some (IRBool b)) -> stack_push !e.stack (IRBool (a || b)); eval e
+        | _                                  -> failwith "Invalid arguments to or")
+    | Not -> (match stack_pop !e.stack with
+        | Some (IRBool a) -> stack_push !e.stack (IRBool (not a)); eval e
+        | _               -> failwith "Invalid arguments to not")
+    | Push v -> stack_push !e.stack v; eval e
+    | Call s -> (match s with
+        | "print" -> (match stack_pop !e.stack with
+            | Some v -> print_endline (fmt_print_ir_value v); eval e
+            | None   -> failwith "Stack underflow")
+        | f       -> failwith ("Unknown function: " ^ f))
     | Load s -> (match env_get !e.env s with
         | Some v -> stack_push !e.stack v; eval e
         | None   -> failwith "Unknown symbol")
     | Store s -> (match stack_pop !e.stack with
         | Some v -> env_set !e.env s v; eval e
         | None   -> failwith "Stack underflow")
-    | Jump n -> e := {!e with pc = ref (!(!e.pc) + n)}; eval e
+    | Jump i -> jump !e i; eval e
     | JumpF i -> (match stack_pop !e.stack with
         | Some (IRBool b) -> if b
                              then eval e
-                             else e := {!e with pc = ref (!(!e.pc) + i)}; eval e
+                             else jump !e i; eval e
         | _               -> failwith "Invalid arguments to jmpf")
 ;;
 
-(* Entry point *)
+(***************
+ * Entry point *
+ ***************)
 
 let test = [
     List [Sym "def"; Sym "foo"; List [Sym "+"; Int 17; Int 17]];
     List [Sym "if";
-        List [Sym "="; Sym "foo"; Int 34];
+        List [Sym "not"; List [Sym "="; Sym "foo"; Int 34]];
         List [Sym "print"; List [Sym "+"; List [Sym "*"; Sym "foo"; Int 2]; Int 1]];
-        List [Sym "print"; Str "False"]]];;
-
+        List [Sym "print"; Str "False"]];
+    List [Sym "print"; Str "Yay :D"]];;
 
 let main =
     match compiles test with
         | Ok ir ->
             let e = evaluator_new ir in
+            (* print_endline (String.concat "\n" (List.map fmt_ir ir)); *)
             eval (ref e)
         | Error e -> print_endline ("Compile error: " ^ e)
